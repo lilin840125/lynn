@@ -228,12 +228,12 @@ async function runAll(){
   render(results,minComm);
 }
 function verdict(d,minComm){
-  const c1=d.commission_rate>=15,c2=d.est_commission>=minComm,c3=d.unavail_ratio<=0.1,
+  const c2=d.est_commission>=minComm,c3=d.unavail_ratio<=0.1,
         c4=d.has_storefront,c5=(d.expired_count||0)===0;
-  const n=[c1,c2,c3,c4,c5].filter(Boolean).length;
-  return{c1,c2,c3,c4,c5,n,
-    cls:n===5?'b-yes':n>=3?'b-maybe':'b-no',
-    txt:n===5?'值得投放':n>=3?'谨慎投放':'不建议'};
+  const n=[c2,c3,c4,c5].filter(Boolean).length;
+  return{c2,c3,c4,c5,n,
+    cls:n===4?'b-yes':n>=2?'b-maybe':'b-no',
+    txt:n===4?'值得投放':n>=2?'谨慎投放':'不建议'};
 }
 function render(results,minComm){
   const ok=results.filter(r=>!r.error);
@@ -291,7 +291,6 @@ function render(results,minComm){
           <div class="met"><div class="met-v" style="color:#92400e">${d.unavail_count}</div><div class="met-l">N/Avail 产品数</div></div>
         </div>
         <div class="chks">
-          <div class="chk ${v.c1?'c-pass':'c-fail'}"><span>${v.c1?'✓':'✗'}  佣金率 ≥ 15%</span><span class="chk-v">${d.commission_rate}%</span></div>
           <div class="chk ${v.c2?'c-pass':'c-fail'}"><span>${v.c2?'✓':'✗'}  预估佣金 ≥ $${minComm}</span><span class="chk-v">$${d.est_commission.toFixed(2)}</span></div>
           <div class="chk ${v.c3?'c-pass':'c-warn'}"><span>${v.c3?'✓':'✗'}  N/Avail ≤ 10%</span><span class="chk-v">${unavailPct}% (${d.unavail_count}/${d.total_products})</span></div>
           <div class="chk ${v.c4?'c-pass':'c-fail'}"><span>${v.c4?'✓':'✗'}  有 Storefront Links</span><span class="chk-v">${d.has_storefront?'有':'无'}</span></div>
