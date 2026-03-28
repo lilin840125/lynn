@@ -55,16 +55,23 @@ input[type=password]:focus{border-color:#111}
   <p class="sub">请输入密码登录</p>
   <div class="err" id="err">密码错误，请重试</div>
   <label>密码</label>
-  <input type="password" id="pw" placeholder="输入密码" onkeydown="if(event.key==='Enter')login()">
-  <button class="btn" onclick="login()">登录</button>
+  <input type="password" id="pw" placeholder="输入密码">
+  <label style="margin-top:14px">你的 YP Cookie</label>
+  <textarea id="ck" rows="3" placeholder="从浏览器 F12 → Network → Request Headers → Cookie 复制粘贴" style="width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:8px;font-size:11px;font-family:monospace;resize:vertical;outline:none;margin-bottom:14px"></textarea>
+  <div class="hint" style="font-size:11px;color:#bbb;margin-top:-10px;margin-bottom:14px;line-height:1.5">Cookie 只在你的浏览器里保存，不会被他人看到</div>
+  <button class="btn" onclick="login()" onkeydown="if(event.key==='Enter')login()">登录</button>
 </div>
 <script>
 async function login(){
   const pw = document.getElementById('pw').value;
-  const r = await fetch('/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+  const ck = document.getElementById('ck').value.trim();
+  if(!ck){alert('请填写你的 YP Cookie');return;}
+  const r = await fetch('/login', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw,cookie:ck})});
   const d = await r.json();
-  if(d.ok) location.href='/';
-  else document.getElementById('err').classList.add('show');
+  if(d.ok){
+    sessionStorage.setItem('yp_cookie', ck);
+    location.href='/';
+  } else document.getElementById('err').classList.add('show');
 }
 </script>
 </body>
@@ -169,10 +176,8 @@ select{width:100%;padding:9px 13px;border:1px solid #ddd;border-radius:8px;font-
         </select>
       </div>
     </div>
-    <div class="cookie-toggle" onclick="toggleCookie()"><span id="c-arr">▶</span> 更新 YP Cookie（过期时展开）</div>
-    <div id="c-area" style="display:none;margin-top:8px">
-      <textarea id="cookie" rows="2" placeholder="F12 → Network → Request Headers → Cookie 复制粘贴"></textarea>
-    </div>
+    <div style="font-size:12px;color:#bbb;margin-top:8px">Cookie 已从登录时自动载入。过期请<a href="/logout-page" style="color:#999;text-decoration:underline" onclick="sessionStorage.clear()">重新登录</a>更新。</div>
+    <textarea id="cookie" style="display:none"></textarea>
     <button class="btn" id="btn" onclick="runAll()">开始分析</button>
     <div class="prog-bar" id="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0"></div></div>
     <div class="prog-txt" id="prog-txt"></div>
@@ -199,7 +204,7 @@ async function runAll(){
   if(!urls.length){setErr('没有找到含 advert_id 的链接');return;}
   const minComm=parseFloat(document.getElementById('min-comm').value)||3.5;
   const sf=document.getElementById('sf').value;
-  const cookie=document.getElementById('cookie').value.trim();
+  const cookie=sessionStorage.getItem('yp_cookie')||document.getElementById('cookie').value.trim();
   clearErr();
   document.getElementById('result').innerHTML='';
   document.getElementById('btn').disabled=true;
