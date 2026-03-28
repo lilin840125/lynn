@@ -332,7 +332,8 @@ def login_page():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
-    if data.get('password') == LOGIN_PASSWORD:
+    current_password = os.environ.get('LOGIN_PASSWORD', 'yp2026')
+    if data.get('password') == current_password:
         session['logged_in'] = True
         return jsonify({'ok': True})
     return jsonify({'ok': False})
