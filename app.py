@@ -366,12 +366,15 @@ function renderTopProducts(d){
   const rows=d.top_products.map((p,i)=>`<tr>
     <td style="text-align:center;color:#999">${i+1}</td>
     <td><strong style="font-family:monospace;font-size:13px">${p.asin}</strong></td>
-    <td style="font-size:12px;color:#555;max-width:280px">${p.name.slice(0,80)}${p.name.length>80?'…':''}</td>
+    <td style="font-size:12px;color:#555;max-width:200px">${p.name.slice(0,70)}${p.name.length>70?'…':''}</td>
     <td style="text-align:right">$${p.price.toFixed(2)}</td>
     <td style="text-align:right;font-weight:600;color:#166534">${p.review_count.toLocaleString()}</td>
+    <td style="text-align:right;font-family:monospace;font-size:12px;color:#1e40af">$${p.cpc_min.toFixed(3)}–$${p.cpc_max.toFixed(3)}</td>
+    <td style="font-size:11px;max-width:180px;word-break:break-all">${p.tracking_url?'<a href="'+p.tracking_url+'" target="_blank" style="color:#1d4ed8;text-decoration:none">'+p.tracking_url.slice(0,50)+'…</a>':'—'}</td>
   </tr>`).join('');
 
   const asins=d.top_products.map(p=>p.asin).join('\\n');
+  const links=d.top_products.map(p=>p.tracking_url||'').join('\\n');
 
   return `<div class="offer-card">
     <div class="offer-head">
@@ -383,12 +386,20 @@ function renderTopProducts(d){
     <div class="offer-body">
       <div style="overflow-x:auto;margin-bottom:16px">
         <table class="tbl">
-          <thead><tr><th>#</th><th>ASIN</th><th>产品名称</th><th style="text-align:right">价格</th><th style="text-align:right">评论数</th></tr></thead>
+          <thead><tr><th>#</th><th>ASIN</th><th>产品名称</th><th style="text-align:right">价格</th><th style="text-align:right">评论数</th><th style="text-align:right">CPC区间</th><th>追踪链接</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <div class="sect-lbl" style="margin-bottom:6px">ASIN 列表（可直接复制）</div>
-      <textarea style="width:100%;height:${d.top_products.length*24+16}px;font-family:monospace;font-size:13px;padding:8px;border:1px solid #ddd;border-radius:8px;resize:none;outline:none" readonly>${asins}</textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="sect-lbl" style="margin-bottom:6px">ASIN 列表</div>
+          <textarea style="width:100%;height:${d.top_products.length*22+16}px;font-family:monospace;font-size:12px;padding:8px;border:1px solid #ddd;border-radius:8px;resize:none;outline:none" readonly>${asins}</textarea>
+        </div>
+        <div>
+          <div class="sect-lbl" style="margin-bottom:6px">追踪链接列表</div>
+          <textarea style="width:100%;height:${d.top_products.length*22+16}px;font-family:monospace;font-size:11px;padding:8px;border:1px solid #ddd;border-radius:8px;resize:none;outline:none" readonly>${links}</textarea>
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -590,9 +601,10 @@ def scrape_top_products(url, cookie_str, top_n=10):
                 review_count = int(m.group(1).replace(',', ''))
                 break
 
-        # 价格（过滤 N/Avail.）
+        # 价格和佣金率
         cols = row.find_all('div', class_='col-xs-2')
         price = None
+        comm_rate = 0.0
         for col in cols:
             txt = col.get_text(strip=True)
             if txt.startswith('USD '):
@@ -602,16 +614,37 @@ def scrape_top_products(url, cookie_str, top_n=10):
                     pass
             elif txt == 'N/Avail.':
                 price = None
+            elif re.match(r'^\d+(\.\d+)?%$', txt):
+                try:
+                    v = float(txt.replace('%', ''))
+                    if 1 <= v <= 80:
+                        comm_rate = v / 100
+                except:
+                    pass
 
         # 必须有价格
         if not asin or price is None:
             continue
+
+        # 追踪链接：从 adv-btn 的 onclick 属性里提取
+        tracking_url = ''
+        if adv_btn:
+            onclick = adv_btn.get('onclick', '')
+            m = re.search(r"ClipboardJS\.copy\('([^']+)'\)", onclick)
+            if m:
+                tracking_url = m.group(1)
+
+        cpc_max = round(price * comm_rate / 30, 3) if comm_rate else 0
+        cpc_min = round(price * comm_rate / 50, 3) if comm_rate else 0
 
         products.append({
             'asin':         asin,
             'name':         prod_name,
             'price':        price,
             'review_count': review_count,
+            'tracking_url': tracking_url,
+            'cpc_min':      cpc_min,
+            'cpc_max':      cpc_max,
         })
 
     # 按评论数降序，取前N
