@@ -369,7 +369,7 @@ function renderTopProducts(d){
     <td style="font-size:12px;color:#555;max-width:200px">${p.name.slice(0,70)}${p.name.length>70?'…':''}</td>
     <td style="text-align:right">$${p.price.toFixed(2)}</td>
     <td style="text-align:right;font-weight:600;color:#166534">${p.review_count.toLocaleString()}</td>
-    <td style="text-align:right;font-family:monospace;font-size:12px;color:#1e40af">$${p.cpc_min.toFixed(3)}–$${p.cpc_max.toFixed(3)}</td>
+    <td style="text-align:right;font-family:monospace;font-size:12px;color:#1e40af">$${p.cpc_min.toFixed(2)}–$${p.cpc_max.toFixed(2)}</td>
     <td style="font-size:11px;max-width:180px;word-break:break-all">${p.tracking_url?'<a href="'+p.tracking_url+'" target="_blank" style="color:#1d4ed8;text-decoration:none">'+p.tracking_url.slice(0,50)+'…</a>':'—'}</td>
   </tr>`).join('');
 
