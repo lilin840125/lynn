@@ -185,6 +185,17 @@ select{width:100%;padding:9px 13px;border:1px solid #ddd;border-radius:8px;font-
 
   <div class="error" id="err"></div>
   <div id="result"></div>
+
+  <hr style="border:none;border-top:1px solid #e5e5e5;margin:8px 0 20px">
+
+  <div class="card">
+    <label>Top 10 产品筛选（按评论数，排除 Expired 和 N/Avail）</label>
+    <textarea id="tp-url" style="min-height:52px" placeholder="粘贴商家详情页链接，每行一个"></textarea>
+    <button class="btn" id="tp-btn" onclick="runTopProducts()" style="margin-top:10px">筛选 Top 10 产品</button>
+    <div class="prog-bar" id="tp-prog-bar"><div class="prog-fill" id="tp-prog-fill" style="width:0"></div></div>
+    <div class="prog-txt" id="tp-prog-txt"></div>
+  </div>
+  <div id="tp-result"></div>
 </div>
 
 <script>
@@ -319,6 +330,68 @@ function render(results,minComm){
 }
 function setErr(msg){const e=document.getElementById('err');e.textContent=msg;e.classList.add('show');}
 function clearErr(){document.getElementById('err').classList.remove('show');}
+
+async function runTopProducts(){
+  const raw=document.getElementById('tp-url').value.trim();
+  if(!raw){alert('请输入链接');return;}
+  const urls=raw.split('\\n').map(s=>s.trim()).filter(s=>s.includes('advert_id'));
+  if(!urls.length){alert('没有找到含 advert_id 的链接');return;}
+  const cookie=sessionStorage.getItem('yp_cookie')||'';
+  document.getElementById('tp-btn').disabled=true;
+  document.getElementById('tp-btn').textContent='筛选中...';
+  document.getElementById('tp-prog-bar').classList.add('show');
+  document.getElementById('tp-prog-txt').classList.add('show');
+  document.getElementById('tp-result').innerHTML='';
+
+  let html='';
+  for(let i=0;i<urls.length;i++){
+    document.getElementById('tp-prog-fill').style.width=Math.round((i+1)/urls.length*100)+'%';
+    document.getElementById('tp-prog-txt').textContent=`${i+1} / ${urls.length}`;
+    try{
+      const r=await fetch('/top_products',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({url:urls[i],cookie,top_n:10})});
+      const d=await r.json();
+      if(d.error){html+=`<div class="offer-card"><div class="offer-body" style="color:#991b1b">${d.error}</div></div>`;continue;}
+      html+=renderTopProducts(d);
+    }catch(e){html+=`<div class="offer-card"><div class="offer-body" style="color:#991b1b">${e.message}</div></div>`;}
+  }
+
+  document.getElementById('tp-result').innerHTML=html;
+  document.getElementById('tp-btn').disabled=false;
+  document.getElementById('tp-btn').textContent='筛选 Top 10 产品';
+  document.getElementById('tp-prog-txt').textContent='完成';
+}
+
+function renderTopProducts(d){
+  const rows=d.top_products.map((p,i)=>`<tr>
+    <td style="text-align:center;color:#999">${i+1}</td>
+    <td><strong style="font-family:monospace;font-size:13px">${p.asin}</strong></td>
+    <td style="font-size:12px;color:#555;max-width:280px">${p.name.slice(0,80)}${p.name.length>80?'…':''}</td>
+    <td style="text-align:right">$${p.price.toFixed(2)}</td>
+    <td style="text-align:right;font-weight:600;color:#166534">${p.review_count.toLocaleString()}</td>
+  </tr>`).join('');
+
+  const asins=d.top_products.map(p=>p.asin).join('\\n');
+
+  return `<div class="offer-card">
+    <div class="offer-head">
+      <div>
+        <div class="offer-name">${d.merchant_name} — Top ${d.top_products.length} 产品</div>
+        <div class="offer-meta">共 ${d.total_valid} 个有效产品（已排除 Expired 和 N/Avail）</div>
+      </div>
+    </div>
+    <div class="offer-body">
+      <div style="overflow-x:auto;margin-bottom:16px">
+        <table class="tbl">
+          <thead><tr><th>#</th><th>ASIN</th><th>产品名称</th><th style="text-align:right">价格</th><th style="text-align:right">评论数</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="sect-lbl" style="margin-bottom:6px">ASIN 列表（可直接复制）</div>
+      <textarea style="width:100%;height:${d.top_products.length*24+16}px;font-family:monospace;font-size:13px;padding:8px;border:1px solid #ddd;border-radius:8px;resize:none;outline:none" readonly>${asins}</textarea>
+    </div>
+  </div>`;
+}
 </script>
 </body>
 </html>"""
@@ -460,6 +533,109 @@ def scrape_offer(url, sf_pref, cookie_str):
         'unavail_ratio':    unavail_r,
         'prices':           prices,
     }
+
+
+def scrape_top_products(url, cookie_str, top_n=10):
+    advert_m = re.search(r'advert_id=(\d+)', url)
+    site_m   = re.search(r'site_id=(\d+)', url)
+    if not advert_m:
+        return {'error': '链接中未找到 advert_id'}
+    advert_id = advert_m.group(1)
+    site_id   = site_m.group(1) if site_m else '12052'
+    fetch_url = f'https://www.yeahpromos.com/index/offer/brand_detail?advert_id={advert_id}&site_id={site_id}'
+    headers   = {**HEADERS, 'Cookie': cookie_str or COOKIE}
+    try:
+        r = req.get(fetch_url, headers=headers, timeout=20)
+        if r.status_code != 200:
+            return {'error': f'HTTP {r.status_code}'}
+        if 'login' in r.url:
+            return {'error': 'Cookie 已过期'}
+        html = r.text
+    except Exception as e:
+        return {'error': str(e)}
+
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # 商家名
+    name = ''
+    el = soup.find('div', class_='advert-title')
+    if el:
+        name = el.get_text(strip=True)
+
+    products = []
+    for row in soup.find_all('div', class_='product-line'):
+        # 过滤 Expired
+        adv_btn = row.find('p', class_='adv-btn')
+        if adv_btn and 'Expired' in adv_btn.get_text():
+            continue
+
+        # 产品名
+        name_div = row.find('div', class_='product-name')
+        if not name_div:
+            continue
+        prod_name = name_div.find('div')
+        prod_name = prod_name.get_text(strip=True) if prod_name else ''
+
+        # ASIN
+        asin_div = name_div.find('div', class_='asin-code')
+        asin = asin_div.get_text(strip=True) if asin_div else ''
+
+        # 评论数（格式：(787) 或 (2,672)）
+        review_count = 0
+        star_div = name_div.find_all('div')
+        for d in star_div:
+            txt = d.get_text(strip=True)
+            m = re.search(r'\(([\d,]+)\)', txt)
+            if m:
+                review_count = int(m.group(1).replace(',', ''))
+                break
+
+        # 价格（过滤 N/Avail.）
+        cols = row.find_all('div', class_='col-xs-2')
+        price = None
+        for col in cols:
+            txt = col.get_text(strip=True)
+            if txt.startswith('USD '):
+                try:
+                    price = float(txt.replace('USD', '').strip())
+                except:
+                    pass
+            elif txt == 'N/Avail.':
+                price = None
+
+        # 必须有价格
+        if not asin or price is None:
+            continue
+
+        products.append({
+            'asin':         asin,
+            'name':         prod_name,
+            'price':        price,
+            'review_count': review_count,
+        })
+
+    # 按评论数降序，取前N
+    products.sort(key=lambda x: x['review_count'], reverse=True)
+    top = products[:top_n]
+
+    return {
+        'merchant_name': name,
+        'advert_id':     advert_id,
+        'total_valid':   len(products),
+        'top_products':  top,
+    }
+
+@app.route('/top_products', methods=['POST'])
+def top_products():
+    if not session.get('logged_in'):
+        return jsonify({'error': '请先登录'}), 401
+    data   = request.json
+    url    = data.get('url', '').strip()
+    cookie = data.get('cookie', '').strip()
+    top_n  = int(data.get('top_n', 10))
+    if not url:
+        return jsonify({'error': '请输入链接'})
+    return jsonify(scrape_top_products(url, cookie, top_n))
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
