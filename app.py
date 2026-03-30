@@ -176,7 +176,7 @@ select{width:100%;padding:9px 13px;border:1px solid #ddd;border-radius:8px;font-
         </select>
       </div>
     </div>
-    <div style="font-size:12px;color:#bbb;margin-top:8px">Cookie 已从登录时自动载入。过期请<a href="/logout-page" style="color:#999;text-decoration:underline" onclick="sessionStorage.clear()">重新登录</a>更新。</div>
+    <div style="font-size:12px;color:#bbb;margin-top:8px">Cookie 已从登录时自动载入。过期请<a href="#" style="color:#999;text-decoration:underline" onclick="logout();return false;">重新登录</a>更新。</div>
     <textarea id="cookie" style="display:none"></textarea>
     <button class="btn" id="btn" onclick="runAll()">开始分析</button>
     <div class="prog-bar" id="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0"></div></div>
