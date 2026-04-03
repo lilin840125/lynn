@@ -491,6 +491,11 @@ def scrape_offer(url, sf_pref, cookie_str):
                     price_val = float(txt.replace('USD', '').strip())
                 except:
                     pass
+            elif txt.startswith('$'):
+                try:
+                    price_val = float(txt.replace('$', '').strip())
+                except:
+                    pass
             elif txt == 'N/Avail.':
                 price_val = 0
             elif re.match(r'^\d+(\.\d+)?%$', txt):
@@ -618,6 +623,11 @@ def scrape_top_products(url, cookie_str, top_n=10):
             if txt.startswith('USD '):
                 try:
                     price = float(txt.replace('USD', '').strip())
+                except:
+                    pass
+            elif txt.startswith('$'):
+                try:
+                    price = float(txt.replace('$', '').strip())
                 except:
                     pass
             elif txt == 'N/Avail.':
