@@ -189,8 +189,8 @@ select{width:100%;padding:9px 13px;border:1px solid #ddd;border-radius:8px;font-
   <hr style="border:none;border-top:1px solid #e5e5e5;margin:8px 0 20px">
 
   <div class="card">
-    <label>Top 10 产品筛选（按评论数，排除 Expired 和 N/Avail）</label>
-    <textarea id="tp-url" style="min-height:52px" placeholder="粘贴商家详情页链接，每行一个"></textarea>
+    <label>Top 10 产品筛选（每行输入一个 Advert ID 或完整链接）</label>
+    <textarea id="tp-url" style="min-height:52px" placeholder="369227&#10;380662&#10;381632"></textarea>
     <button class="btn" id="tp-btn" onclick="runTopProducts()" style="margin-top:10px">筛选 Top 10 产品</button>
     <div class="prog-bar" id="tp-prog-bar"><div class="prog-fill" id="tp-prog-fill" style="width:0"></div></div>
     <div class="prog-txt" id="tp-prog-txt"></div>
@@ -211,7 +211,11 @@ async function logout(){
 async function runAll(){
   const raw=document.getElementById('urls').value.trim();
   if(!raw){setErr('请输入链接');return;}
-  const urls=raw.split('\\n').map(s=>s.trim()).filter(s=>s.includes('advert_id'));
+  const urls=raw.split('\\n').map(s=>s.trim()).filter(s=>s.length>0).map(s=>{
+    if(s.startsWith('http')) return s;
+    const id=s.replace(/\D/g,'');
+    return id?'https://www.yeahpromos.com/index/offer/brand_detail?advert_id='+id+'&site_id=12052':'';
+  }).filter(s=>s.includes('advert_id'));
   if(!urls.length){setErr('没有找到含 advert_id 的链接');return;}
   const minComm=parseFloat(document.getElementById('min-comm').value)||3.5;
   const sf=document.getElementById('sf').value;
@@ -334,7 +338,11 @@ function clearErr(){document.getElementById('err').classList.remove('show');}
 async function runTopProducts(){
   const raw=document.getElementById('tp-url').value.trim();
   if(!raw){alert('请输入链接');return;}
-  const urls=raw.split('\\n').map(s=>s.trim()).filter(s=>s.includes('advert_id'));
+  const urls=raw.split('\\n').map(s=>s.trim()).filter(s=>s.length>0).map(s=>{
+    if(s.startsWith('http')) return s;
+    const id=s.replace(/\D/g,'');
+    return id?'https://www.yeahpromos.com/index/offer/brand_detail?advert_id='+id+'&site_id=12052':'';
+  }).filter(s=>s.includes('advert_id'));
   if(!urls.length){alert('没有找到含 advert_id 的链接');return;}
   const cookie=sessionStorage.getItem('yp_cookie')||'';
   document.getElementById('tp-btn').disabled=true;
